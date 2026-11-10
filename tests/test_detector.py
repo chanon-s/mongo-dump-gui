@@ -20,6 +20,18 @@ def test_validate_binary_failure():
         assert info.is_valid is False
         assert info.error is not None
 
+def test_validate_binary_rejects_non_mongodump():
+    with patch("os.path.exists", return_value=True), patch("subprocess.run") as mock_run:
+        # Tool like git or python that has "version" in output but is not mongodump
+        mock_run.return_value = MagicMock(
+            returncode=0,
+            stdout="git version 2.39.3 (Apple Git-146)\n",
+            stderr=""
+        )
+        info = validate_binary("/usr/bin/git")
+        assert info.is_valid is False
+        assert "Unexpected" in info.error or "not mongodump" in info.error.lower()
+
 def test_detect_mongodump_from_custom_valid():
     with patch("core.detector.validate_binary") as mock_val:
         from core.models import BinaryInfo

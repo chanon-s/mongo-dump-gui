@@ -17,7 +17,8 @@ def mask_uri_secrets(text: str) -> str:
 
 def build_mongodump_args(tool_path: str, uri: str, options: DumpOptions) -> List[str]:
     """Constructs the command-line argument list for mongodump."""
-    args = [tool_path, f"--uri={uri.strip()}"]
+    clean_uri = uri.strip().strip("'\"")
+    args = [tool_path, f"--uri={clean_uri}"]
 
     if options.db and options.db.strip():
         args.append(f"--db={options.db.strip()}")
@@ -62,6 +63,10 @@ class MongoDumper:
     def is_running(self) -> bool:
         return self._is_running
 
+    @property
+    def is_cancelled(self) -> bool:
+        return self._cancelled
+
     def start(
         self,
         tool_path: str,
@@ -94,6 +99,8 @@ class MongoDumper:
                     stdout=subprocess.PIPE,
                     stderr=subprocess.STDOUT,  # Merge stderr into stdout stream
                     text=True,
+                    encoding="utf-8",
+                    errors="replace",
                     bufsize=1,
                     creationflags=creationflags
                 )
@@ -109,7 +116,7 @@ class MongoDumper:
                 returncode = self._process.returncode
 
             except Exception as e:
-                on_log(f"\n[Error executing mongodump]: {str(e)}\n")
+                on_log(f"\n[Error executing mongodump]: {mask_uri_secrets(str(e))}\n")
                 returncode = -1
             finally:
                 with self._lock:
@@ -137,8 +144,9 @@ class MongoDumper:
 
         try:
             if sys.platform == "win32":
-                # On Windows kill child tree
-                subprocess.call(["taskkill", "/F", "/T", "/PID", str(self._process.pid)])
+                # On Windows kill child tree without flashing console window
+                flags = getattr(subprocess, "CREATE_NO_WINDOW", 0x08000000)
+                subprocess.call(["taskkill", "/F", "/T", "/PID", str(self._process.pid)], creationflags=flags)
             else:
                 self._process.terminate()
         except Exception:

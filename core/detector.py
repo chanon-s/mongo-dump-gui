@@ -36,7 +36,7 @@ def validate_binary(executable_path: str) -> BinaryInfo:
         )
 
         output = result.stdout or result.stderr or ""
-        if result.returncode == 0 and ("mongodump" in output.lower() or "version" in output.lower()):
+        if result.returncode == 0 and "mongodump" in output.lower():
             # Parse first line or version string
             first_line = output.strip().splitlines()[0] if output.strip().splitlines() else output.strip()
             return BinaryInfo(
@@ -49,7 +49,7 @@ def validate_binary(executable_path: str) -> BinaryInfo:
             return BinaryInfo(
                 path=executable_path,
                 is_valid=False,
-                error=f"Unexpected exit code {result.returncode} or output"
+                error=f"Unexpected exit code {result.returncode} or output is not mongodump"
             )
     except Exception as e:
         return BinaryInfo(

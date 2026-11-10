@@ -34,6 +34,9 @@ class MongoDumpApp(ctk.CTk):
         self._build_ui()
         self._initialize_data()
 
+        # Handle window closing when dump process may be running
+        self.protocol("WM_DELETE_WINDOW", self._on_window_close)
+
     def _build_ui(self) -> None:
         self.columnconfigure(0, weight=1)
         self.rowconfigure(4, weight=1)
@@ -162,7 +165,7 @@ class MongoDumpApp(ctk.CTk):
     def _on_start_dump(self) -> None:
         # Validate binary
         current_path = self.path_bar.get_path()
-        if not self.binary_info.is_valid:
+        if current_path != self.binary_info.path or not self.binary_info.is_valid:
             self.binary_info = validate_binary(current_path)
             self._update_binary_status(self.binary_info)
             if not self.binary_info.is_valid:
@@ -171,6 +174,7 @@ class MongoDumpApp(ctk.CTk):
                     f"Please specify a valid mongodump executable before running.\n\nError: {self.binary_info.error}"
                 )
                 return
+            self.config_manager.set_tool_path(current_path)
 
         # Validate URI
         uri = self.conn_form.get_uri()
@@ -212,8 +216,19 @@ class MongoDumpApp(ctk.CTk):
             self.dumper.cancel()
 
     def _on_dump_finished(self, returncode: int) -> None:
-        if returncode == 0:
+        if self.dumper.is_cancelled:
+            self.log_viewer.set_running_state(False, "Status: Cancelled")
+        elif returncode == 0:
             self.log_viewer.set_running_state(False, "Status: Completed Successfully")
             messagebox.showinfo("Dump Complete", "MongoDB dump completed successfully!")
         else:
             self.log_viewer.set_running_state(False, f"Status: Failed (Code {returncode})")
+
+    def _on_window_close(self) -> None:
+        """Gracefully handle window close when a background dump is in progress."""
+        if self.dumper.is_running:
+            if messagebox.askyesno("Exit Application", "A dump is currently running. Cancel dump and exit?"):
+                self.dumper.cancel()
+                self.destroy()
+        else:
+            self.destroy()

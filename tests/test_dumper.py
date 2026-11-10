@@ -43,6 +43,14 @@ def test_build_mongodump_args_archive():
     assert "--excludeCollection=logs" in args
     assert "--excludeCollection=cache" in args
 
+def test_build_mongodump_args_strips_quotes():
+    opts = DumpOptions(db="mydb")
+    args = build_mongodump_args("mongodump", '"mongodb://user:pass@host:27017/mydb"', opts)
+    assert args[1] == "--uri=mongodb://user:pass@host:27017/mydb"
+    
+    args2 = build_mongodump_args("mongodump", "'mongodb://localhost:27017'", opts)
+    assert args2[1] == "--uri=mongodb://localhost:27017"
+
 def test_build_mongodump_args_directory():
     opts = DumpOptions(
         db="",
