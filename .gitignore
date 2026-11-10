@@ -1,0 +1,13 @@
+.venv/
+__pycache__/
+*.pyc
+*.pyo
+.pytest_cache/
+dist/
+build/
+*.spec
+*.dump
+*.archive
+config.json
+config.jsonc
+.superpowers/
