@@ -53,7 +53,12 @@ jobs:
       - name: Run Test Suite
         run: |
           pip install -r requirements.txt
-          pytest -v
+          if [ "${{ runner.os }}" = "Linux" ]; then
+            sudo apt-get update && sudo apt-get install -y xvfb python3-tk
+            xvfb-run pytest -v
+          else
+            pytest -v
+          fi
 
       - name: Build Executable with PyInstaller
         run: ${{ matrix.build_cmd }}
