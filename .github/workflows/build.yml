@@ -1,0 +1,66 @@
+name: Build Portable Binaries
+
+on:
+  push:
+    branches: [ "main" ]
+  pull_request:
+    branches: [ "main" ]
+  workflow_dispatch:
+
+jobs:
+  build:
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - os: windows-latest
+            artifact_name: MongoDumpGUI-Windows-x64.zip
+            binary_path: dist/MongoDumpGUI.exe
+            build_cmd: |
+              pip install -r requirements.txt
+              pyinstaller --noconfirm --onefile --windowed --name "MongoDumpGUI" --collect-all customtkinter app.py
+              powershell Compress-Archive -Path dist/MongoDumpGUI.exe -DestinationPath MongoDumpGUI-Windows-x64.zip
+
+          - os: macos-latest
+            artifact_name: MongoDumpGUI-macOS.zip
+            binary_path: dist/MongoDumpGUI.app
+            build_cmd: |
+              pip install -r requirements.txt
+              pyinstaller --noconfirm --windowed --name "MongoDumpGUI" --collect-all customtkinter app.py
+              cd dist && zip -r ../MongoDumpGUI-macOS.zip MongoDumpGUI.app
+
+          - os: ubuntu-latest
+            artifact_name: MongoDumpGUI-Linux-x64.zip
+            binary_path: dist/MongoDumpGUI
+            build_cmd: |
+              sudo apt-get update && sudo apt-get install -y python3-tk
+              pip install -r requirements.txt
+              pyinstaller --noconfirm --onefile --windowed --name "MongoDumpGUI" --collect-all customtkinter app.py
+              cd dist && zip -r ../MongoDumpGUI-Linux-x64.zip MongoDumpGUI
+
+    runs-on: ${{ matrix.os }}
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Set up Python 3.10
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.10"
+          cache: "pip"
+
+      - name: Run Test Suite
+        run: |
+          pip install -r requirements.txt
+          pytest -v
+
+      - name: Build Executable with PyInstaller
+        run: ${{ matrix.build_cmd }}
+
+      - name: Upload Binary Artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: ${{ matrix.artifact_name }}
+          path: ${{ matrix.artifact_name }}
+          if-no-files-found: error
