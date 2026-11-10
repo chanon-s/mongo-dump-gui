@@ -1,0 +1,23 @@
+# Dockerfile to build Windows .exe on Linux/macOS using Wine and Windows Python 3.10
+FROM ubuntu:22.04
+
+ENV DEBIAN_FRONTEND=noninteractive
+ENV WINEDEBUG=-all
+
+# Install Wine and dependencies
+RUN dpkg --add-architecture i386 && \
+    apt-get update && \
+    apt-get install -y --no-install-recommends \
+        wine wine64 wine32 wget ca-certificates xvfb && \
+    rm -rf /var/lib/apt/lists/*
+
+# Download and install Windows Python 3.10 inside Wine
+WORKDIR /tmp
+RUN wget -q https://www.python.org/ftp/python/3.10.11/python-3.10.11-amd64.exe && \
+    xvfb-run wine python-3.10.11-amd64.exe /quiet InstallAllUsers=1 PrependPath=1 && \
+    rm python-3.10.11-amd64.exe
+
+WORKDIR /src
+CMD xvfb-run wine "C:\\Program Files\\Python310\\python.exe" -m pip install --upgrade pip && \
+    xvfb-run wine "C:\\Program Files\\Python310\\python.exe" -m pip install -r requirements.txt && \
+    xvfb-run wine "C:\\Program Files\\Python310\\Scripts\\pyinstaller.exe" --noconfirm --onefile --windowed --name "MongoDumpGUI" --collect-all customtkinter app.py
